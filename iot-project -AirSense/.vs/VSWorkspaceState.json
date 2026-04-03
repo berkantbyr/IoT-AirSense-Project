@@ -1,0 +1,14 @@
+{
+  "OutputFoldersPerTargetSystem": {
+    "Local Machine": [
+      "out\\build\\x64-Debug",
+      "out\\install\\x64-Debug"
+    ]
+  },
+  "ExpandedNodes": [
+    "",
+    "\\main"
+  ],
+  "SelectedNode": "\\main\\iot_monitor_main.c",
+  "PreviewInSolutionExplorer": false
+}
