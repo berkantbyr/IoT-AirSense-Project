@@ -1,139 +1,127 @@
-Air Sense —
-An IoT application running on ESP32-S3. It reads temperature, humidity, flammable gas, carbon monoxide, and flame status from the environment; triggers an alarm via speaker in case of danger; displays data on an OLED screen and through a local web server.
-Features
+# Air Sense — ESP32-S3 Multi-Sensor IoT Monitor
 
-Sensors: DHT22 (temperature/humidity), MQ-2 (flammable gas), MQ-7 (CO), digital flame sensor
-Display: SSD1306 OLED
-Audio: I2S output with ~5-second alarm
-Network: Wi-Fi station mode, HTTP server, mDNS (http://airsense.local — configured via HOSTNAME in main/iot_monitor_main.c)
-Web: Embedded HTML dashboard at root, JSON sensor data via /api/data
+**TR** [Türkçe sürüm için aşağıya kaydırın](#türkçe-sürüm--turkish-version)
 
+Air Sense is an **ESP32-S3** IoT project that reads **temperature**, **humidity**, **flammable gas (MQ-2)**, **carbon monoxide (MQ-7)**, and **flame** status. On a hazard it plays a **5-second I2S square-wave alarm** through a speaker, shows status on an **SSD1306 OLED**, and serves a **local web dashboard** with JSON API. Firmware is written in **C** with **ESP-IDF**; there is no separate PC server—the HTTP server runs on the device.
 
+---
 
-[ESP-IDF]
-Target: ESP32-S3
+## Features
 
-Build and flash
-In the project root (in a terminal with ESP-IDF environment loaded):
-bashidf.py set-target esp32s3
-idf.py build
-idf.py -p PORT flash monitor
-Replace PORT with typically COM7 on Windows
-Wi-Fi and security
-Network name and password are defined in main/iot_monitor_main.c as WIFI_SSID and WIFI_PASS.# Air Sense
-An IoT application running on ESP32-S3. It reads temperature, humidity, flammable gas, carbon monoxide, and flame status from the environment; triggers an alarm via the speaker in case of danger; displays data on an OLED screen and through a local web server.
-## How to run the project 
-### 1. Install ESP-IDF
-### 2. Configure Wi-Fi 
-1. Open main/iot_monitor_main.c.
-2. Set your network credentials:
-   - WIFI_SSID — your Wi-Fi name  
-   - WIFI_PASS — your Wi-Fi password  
-3. Optionally change HOSTNAME if you want a different mDNS name (default airsense → http://airsense.local).
-### 3. Connect the board
-1. Wire sensors and OLED according to the table above.
-2. Connect the ESP32-S3 to the PC.
-### 4. Open the project in the ESP-IDF terminal
-bash
-cd "path\......"
+- **Environmental sensing:** **DHT22** on a single GPIO for temperature and relative humidity.
+- **Gas & flame detection:** **MQ-2** (LPG / combustible gases) and **MQ-7** (CO) on **ADC1**; **digital flame sensor** on GPIO.
+- **Alarm:** When flame is detected or raw ADC values exceed **`GAS_DANGER_THRESHOLD`**, a loud **I2S** beep runs for about five seconds.
+- **Display:** **SSD1306** OLED (I2C) shows live readings or a danger screen.
+- **Connectivity:** **Wi-Fi** station mode; **mDNS** hostname (default **`http://airsense.local`**, configurable via **`HOSTNAME`**).
+- **Web UI:** Embedded HTML dashboard at **`/`**; machine-readable data at **`GET /api/data`** (`temp`, `hum`, `mq2`, `mq7`, `flame`).
 
-Use the real folder path on your machine (spaces in the path are fine if quoted).
-### 5. Set the chip target (once per clone / clean tree)
-bash
+---
+
+## Hardware Requirements
+
+- ESP32-S3 development board
+- DHT22 temperature & humidity sensor
+- MQ-2 flammable gas sensor module
+- MQ-7 carbon monoxide sensor module
+- Digital flame sensor (output tied to **GPIO 5** in firmware)
+- SSD1306 OLED (128×64, I2C address **0x3C**)
+- I2S audio amplifier + speaker (BCK **GPIO 16**, WS **GPIO 15**, DATA **GPIO 17**)
+- Jumper wires and stable **3.3 V** / **5 V** supplies as required by your modules
+
+**Pin summary (see `main/iot_monitor_main.c`):** I2C **SDA GPIO 8**, **SCL GPIO 9**; DHT **GPIO 4**; MQ-2 **ADC1_CH0 (GPIO 1)**; MQ-7 **ADC1_CH1 (GPIO 2)**; flame **GPIO 5**.
+
+---
+
+## Software Setup & Usage
+
+### 1 — PC: ESP-IDF toolchain
+
+1. Install **Espressif ESP-IDF** (Windows: official **ESP-IDF Windows Installer**, or follow the [ESP-IDF setup guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/)). Use **ESP-IDF PowerShell**, **ESP-IDF CMD**, or the ESP-IDF VS Code extension so that **`idf.py`** is on your `PATH`.
+2. Open a terminal where **`idf.py`** works, then change to this project directory.
+
+### 2 — ESP32: configuration
+
+1. Open **`main/iot_monitor_main.c`**.
+2. Set your Wi-Fi credentials:
+   - **`WIFI_SSID`** — your network name  
+   - **`WIFI_PASS`** — your network password  
+3. Optional: change **`HOSTNAME`** (mDNS name, e.g. `airsense` → `http://airsense.local`).
+4. Calibrate **`GAS_DANGER_THRESHOLD`** (default **3500**) for your room and sensor placement so normal air does not trigger false alarms.
+
+### 3 — Build, flash, monitor
+
+```bash
 idf.py set-target esp32s3
-
-This selects ESP32-S3 and may regenerate build config.
-### 6. Build the firmware
-bash
 idf.py build
+idf.py -p COM3 flash monitor
+```
 
-Wait until you see **Project build complete** with no errors.
-### 7. Flash firmware and open the serial monitor
-Replace PORT with your port, e.g. on Windows often COM7:
-bash
-idf.py -p COM7 flash monitor
+Replace **`COM3`** with your board’s serial port (Device Manager on Windows).
 
-### 8. Verify that it is running
-1. **Serial log:** After Wi-Fi connects, look for the device IP and mDNS message, e.g. http://airsense.local.
-2. **Browser:** On the **same Wi-Fi network** as the ESP32, open:
-   - http://airsense.local — dashboard 
-3. **API:** Open http://airsense.local/api/data  — you should see JSON with temp, hum, mq2, mq7, flame.
-The HTTP server starts **after** the board gets an IP address (IP_EVENT_STA_GOT_IP).
+---
 
-How to run the project
-1. Install ESP-IDF extension in VS Code
+## 3 — How It Works
 
-Open Visual Studio Code.
-Go to Extensions (Ctrl+Shift+X).
-Search for "ESP-IDF" and install the official extension by Espressif.
-After installation, press Ctrl+Shift+P and run "ESP-IDF: Configure ESP-IDF Extension".
-Choose Express installation or select an existing ESP-IDF installation path.
+After boot, the ESP32 connects to Wi-Fi, starts **mDNS** with the configured hostname, and starts the **HTTP server** when an IP address is obtained. The **`sensor_task`** loop reads ADC values, the flame GPIO, and periodically the DHT22; it updates the OLED and evaluates danger (flame **LOW** or gas raw values above threshold). In danger mode it shows a warning on the OLED and plays the I2S alarm. The browser dashboard at **`/`** shows the embedded UI; clients can poll **`/api/data`** for JSON snapshots.
 
-2. Configure Wi-Fi
+**Security note:** Do not commit real **Wi-Fi passwords** or other secrets in **`iot_monitor_main.c`** or push them to public repositories. Use placeholders locally and rotate credentials if they were ever exposed.
 
-Open main/iot_monitor_main.c.
-Set your network credentials:
+---
 
-WIFI_SSID — your Wi-Fi name
-WIFI_PASS — your Wi-Fi password
+---
 
+## [Türkçe Sürüm / Turkish Version]
 
-Optionally change HOSTNAME if you want a different mDNS name (default airsense → http://airsense.local).
+Air Sense, **ESP32-S3** üzerinde çalışan bir IoT projesidir: **sıcaklık**, **nem**, **yanıcı gaz (MQ-2)**, **karbon monoksit (MQ-7)** ve **alev** bilgisini okur; tehlike durumunda hoparlörden **I2S** ile yaklaşık **5 saniye** alarm verir; verileri **SSD1306 OLED** ekranda ve cihaz üzerindeki **yerel web sunucusunda** gösterir. Yazılım **ESP-IDF** ile **C** dilindedir; ayrı bir bilgisayar sunucusu yoktur—HTTP sunucusu doğrudan ESP32 üzerindedir.
 
-3. Connect the board
+### Özellikler
 
-Wire sensors and OLED according to the table above.
-Connect the ESP32-S3 to the PC via USB.
+- **Çevre ölçümü:** Tek pin üzerinden **DHT22** ile sıcaklık ve bağıl nem.
+- **Gaz ve alev:** **MQ-2** ve **MQ-7** analog okuma; **dijital alev sensörü** GPIO ile.
+- **Alarm:** Alev algılandığında veya ham ADC değerleri **`GAS_DANGER_THRESHOLD`** üzerindeyken **I2S** kare dalga alarmı.
+- **Görüntü:** **SSD1306** OLED canlı değer veya tehlike ekranı.
+- **Ağ:** **Wi-Fi** istasyon modu; **mDNS** ile varsayılan **`http://airsense.local`** ( **`HOSTNAME`** ile değiştirilebilir).
+- **Web:** Kök dizinde gömülü pano (**`/`**); JSON için **`GET /api/data`** (`temp`, `hum`, `mq2`, `mq7`, `flame`).
 
-4. Open the project in VS Code
+### Donanım Gereksinimleri
 
-In VS Code, go to File → Open Folder.
-Navigate to and select the project folder:
+- ESP32-S3 geliştirme kartı
+- DHT22 sıcaklık ve nem sensörü
+- MQ-2 yanıcı gaz sensör modülü
+- MQ-7 karbon monoksit sensör modülü
+- Dijital alev sensörü (firmware’de **GPIO 5**)
+- SSD1306 OLED (128×64, I2C **0x3C**)
+- I2S uyumlu amfi + hoparlör (BCK **GPIO 16**, WS **GPIO 15**, DATA **GPIO 17**)
+- Gerekli bağlantı kabloları ve modülleriniz için uygun güç kaynağı
 
-   path\......
+**Pin özeti (`main/iot_monitor_main.c`):** I2C **SDA GPIO 8**, **SCL GPIO 9**; DHT **GPIO 4**; MQ-2 **ADC1_CH0 (GPIO 1)**; MQ-7 **ADC1_CH1 (GPIO 2)**; alev **GPIO 5**.
 
-VS Code will detect the ESP-IDF project structure.
+### Yazılım Kurulumu ve Kullanımı
 
-5. Set the chip target
+#### 1 — Bilgisayar: ESP-IDF
 
-Press Ctrl+Shift+P and run "ESP-IDF: Set Espressif Device Target".
-Select ESP32-S3 from the list.
+1. **Espressif ESP-IDF** kurun (Windows: resmi **ESP-IDF Windows Installer** veya [ESP-IDF kurulum kılavuzu](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/)). **`idf.py`** komutunun çalıştığı **ESP-IDF PowerShell**, **ESP-IDF CMD** veya VS Code ESP-IDF uzantısı ortamını kullanın.
+2. Proje klasöründe terminal açın.
 
-Alternatively, open the ESP-IDF Terminal in VS Code and run:
-bashidf.py set-target esp32s3
-6. Build the firmware
-Option A — Using the GUI:
+#### 2 — ESP32 yapılandırması
 
-Click the ESP-IDF Build Project button in the bottom status bar (🔨 icon).
+1. **`main/iot_monitor_main.c`** dosyasını açın.
+2. **`WIFI_SSID`** ve **`WIFI_PASS`** değerlerini kendi ağınıza göre girin.
+3. İsteğe bağlı: **`HOSTNAME`** (mDNS adı, örn. `airsense` → `http://airsense.local`).
+4. Ortamınıza göre **`GAS_DANGER_THRESHOLD`** değerini kalibre edin (varsayılan **3500**).
 
-Option B — Using the terminal:
+#### 3 — Derleme, yükleme ve izleme
 
-Open the ESP-IDF Terminal in VS Code.
-Run:
+```bash
+idf.py set-target esp32s3
+idf.py build
+idf.py -p COM3 flash monitor
+```
 
-bash   idf.py build
-Wait until you see Project build complete with no errors.
-7. Select the serial port
+**`COM3`** kısmını kartınızın seri portuna göre değiştirin (Windows’ta Aygıt Yöneticisi).
 
-Press Ctrl+Shift+P and run "ESP-IDF: Select Port to Use".
-Choose your COM port (e.g., COM7 on Windows).
+### Nasıl Çalışır?
 
-8. Flash firmware and open the serial monitor
-Option A — Using the GUI:
+Cihaz açıldığında Wi-Fi’ye bağlanır, **`HOSTNAME`** ile **mDNS** yayını yapar ve IP alındığında **HTTP sunucusunu** başlatır. **`sensor_task`** döngüsü ADC, alev pini ve periyodik DHT22 okumalarını yapar; OLED’i günceller ve tehlike durumunu değerlendirir (alev **LOW** veya gaz eşiği aşımı). Tehlikede OLED’de uyarı ve I2S alarmı çalınır. Tarayıcıda **`/`** adresinde pano; **`/api/data`** ile JSON verisi alınabilir.
 
-Click the ESP-IDF Flash Device button (⚡ icon) in the bottom status bar.
-After flashing completes, click the ESP-IDF Monitor Device button (📟 icon) to open the serial monitor.
-
-Option B — Using the terminal:
-bashidf.py -p COM7 flash monitor
-Replace COM7 with your actual port.
-9. Verify that it is running
-
-Serial log: After Wi-Fi connects, look for the device IP and mDNS message, e.g. http://airsense.local.
-Browser: On the same Wi-Fi network as the ESP32, open:
-
-http://airsense.local 
-
-
-API: Open http://airsense.local/api/data 
-
+**Güvenlik notu:** **`iot_monitor_main.c`** içine gerçek **Wi-Fi şifrelerini** veya gizli anahtarları yazmayın ve bunları herkese açık depolara yüklemeyin. Yerelde yer tutucu kullanın; sızan kimlik bilgilerini değiştirin.
